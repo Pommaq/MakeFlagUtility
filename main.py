@@ -4,6 +4,7 @@ import subprocess # To replace os
 from multiprocessing import cpu_count
 import itertools
 import timeit
+import os
 
 # Dependencies: Make, gcc, Linux. python3.7
 
@@ -14,7 +15,7 @@ def randflags(rawflags):
     print("Randomizing flags. ")
     flags = []
     if len(rawflags) > 1:
-        for l in range(1,len(rawflags)):
+        for l in range(0,len(rawflags)):
             for x in itertools.combinations(rawflags,l):
                 flags.append(x)
     else:
@@ -45,39 +46,54 @@ def runProgram(path, programname):
 
 def TimeProgram(path, programname, rawflags):
     """ Assumes rawflags is a 2d array containing combinations of our flags """
-    
+
     for flaglist in rawflags:
-        CppFlags = "CPPFLAGS=\""
-        command = "make -j" + str(cpu_count()) + " -C " + path + " CPPFLAGS=\""
-        for flag in flaglist:
-            CppFlags += flag + " "
-        CppFlags += "\""
+        if flaglist:
+            CppFlags = "CPPFLAGS="
+            CppFlags += flaglist[0]
+            for flag in flaglist[1:]:
+                CppFlags += " %s" %(flag)
+        else:
+            CppFlags = "CPPFLAGS="
         try:
-            returnval = subprocess.run(["make", "-j" + str(cpu_count()), "-C", path, CppFlags], shell=False ).returncode # Compile code using make and our flags
+            # Clean dir
+            FNULL = open(os.devnull, "w")
+            
+            subprocess.run(["make", "-C", argv[1], "clean",], stdout=FNULL)
+
+            #build program
+            print("Compiling program")
+            print(CppFlags)
+            returnval = subprocess.run(["make", "-j", str(cpu_count()), "-C", path, CppFlags], stdout = FNULL, shell=False ).returncode # Compile code using make and our flags
+            FNULL.close()
             if returnval != 0: # Something went wrong when compiling
                 raise OSError
 
-            else: # We managed to compile the program
+            else: 
                 # Let's benchmark the program.
+                print("Testing with flags: " + CppFlags)
+                FNULL = open(os.devnull, "w")
                 m_times = []
-                for i in range(5):
-                    # Let's run the program 5 times and log the average time.
+                for i in range(16):
+                    # Let's run the program X times and log the average time.
                     # TODO: Consider program return values. End if non-zero return.
                     arguments = """[
                         '%s',
                         '%s',
-                        '%s']
+                        '%s'], stdout=FNULL
                         """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=True") # TODO: shell=True is dangerous. Prevent injections.
-                    m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments), setup="import subprocess", number=1))
+                    m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
+                FNULL.close()
                 #Calculating and logging results
                 result = 0
                 for time in m_times:
                     result += time
-                result = result/5
+                result = result/16
                 logged = log(path, programname, result, flaglist)
                 if not logged:
                     raise OSError
-        except ValueError as error:#OSError:
+                    
+        except OSError as error:
             flagsUsed = ""
             for flag in flaglist:
                 flagsUsed += flag + " "
@@ -85,6 +101,7 @@ def TimeProgram(path, programname, rawflags):
             print(error)
             print("Exiting...")
             return False
+
     return True # We tried all combinations without a hitch.
 
 
@@ -97,8 +114,7 @@ def main():
     else:
 
         print("Cleaning filetree")
-        subprocess.run(["make", "-C " + argv[1], "clean",])
-        print("Compiling program...")
+        subprocess.run(["make", "-C", argv[1], "clean",])
         ProgramName = argv[2] # Saving name of executable
         if len(argv) > 3:
             flags = argv[3:]
