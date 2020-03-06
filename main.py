@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 from sys import argv # argv[0] gives main.py
-import os  # print os.popen("echo Hello, World!").read()
+import subprocess # To replace os
 from multiprocessing import cpu_count
-import datetime
 import itertools
+import timeit
+
 # Dependencies: Make, gcc, Linux. python3.7
 
 #sys.argv[1] is the location of the makefile.
@@ -35,46 +36,54 @@ def log(path, programname, result, flaglist):
         return False
     return False
 
+def runProgram(path, programname):
+    return subprocess.run([path + "/bin/" + programname, path + "/TestDir/"], shell=False).returncode # TODO: Take custom parameters
+    
+
+
+
 
 def TimeProgram(path, programname, rawflags):
     """ Assumes rawflags is a 2d array containing combinations of our flags """
     
     for flaglist in rawflags:
+        CppFlags = "CPPFLAGS=\""
         command = "make -j" + str(cpu_count()) + " -C " + path + " CPPFLAGS=\""
         for flag in flaglist:
-            command += flag + " "
-        command += "\""
+            CppFlags += flag + " "
+        CppFlags += "\""
         try:
-            returnval = os.popen(command) # Compiling code using make.
-            print(int(returnval))
+            returnval = subprocess.run(["make", "-j" + str(cpu_count()), "-C", path, CppFlags], shell=False ).returncode # Compile code using make and our flags
             if returnval != 0: # Something went wrong when compiling
                 raise OSError
 
             else: # We managed to compile the program
                 # Let's benchmark the program.
-                times = []
+                m_times = []
                 for i in range(5):
                     # Let's run the program 5 times and log the average time.
-                    t_start = datetime.now()
-
-                    os.system(path + "/bin/" + programname + " " + path + "/TestDir/") # TODO: Take custom parameters
                     # TODO: Consider program return values. End if non-zero return.
-
-                    t_end = datetime.now()
-                    times.append(t_start - t_end)
+                    print("Doing shit")
+                    command = "subprocess.run([" +"\"" + path + "/bin/" + programname + "\",\"" + path + "/TestDir/" + "\"], shell=False)"
+                    m_times.append(timeit.timeit(command, setup="import subprocess"))
+                    print("Did shit")
                 #Calculating and logging results
+                print("Så")
+
                 result = 0
-                for time in times:
+                for time in m_times:
                     result += time
                 result = result/5
                 logged = log(result, flaglist)
                 if not logged:
                     raise OSError
-        except OSError:
+        except ValueError as error:#OSError:
             flagsUsed = ""
             for flag in flaglist:
                 flagsUsed += flag + " "
-            print("Something went wrong testing the program.\nFlags were: " + flagsUsed + "\nExiting...")
+            print("Something went wrong testing the program.\nFlags were: " + flagsUsed)
+            print(error)
+            print("Exiting...")
             return False
     return True # We tried all combinations without a hitch.
 
@@ -88,9 +97,9 @@ def main():
     else:
 
         print("Cleaning filetree")
-        os.system("make -C " + argv[1] + " clean")
+        subprocess.run(["make", "-C " + argv[1], "clean",])
         print("Compiling program...")
-        ProgramName = argv[2] # Saving programname
+        ProgramName = argv[2] # Saving name of executable
         if len(argv) > 3:
             flags = argv[3:]
         else:
