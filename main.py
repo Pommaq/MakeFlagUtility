@@ -36,7 +36,7 @@ def TimeProgram(path, programname, rawflags):
     """ Assumes rawflags is a 2d array containing combinations of our flags """
     
     for flaglist in rawflags:
-        command = "make -j" + str(cpu_count()) + "CXXFLAGS = \""
+        command = "make -j" + str(cpu_count()) + "CPPFLAGS = \""
         for flag in flaglist:
             command += flag + " "
         command += "\""
@@ -78,8 +78,8 @@ def TimeProgram(path, programname, rawflags):
 def main():
 
     if len(argv) < 3:
-        print("Usage:\nCall: python3 main.py [PATH TO DIRECTORY CONTAINING MAKEFILE] [EXECUTABLE NAME] [GCC FLAGS]\nNote: This assumes the gcc flags in the makefile are passed as a variable named CXXFLAGS\
-            \nand that the executable is found in PATH/bin")
+        print("Usage:\nCall: python3 main.py [PATH TO DIRECTORY CONTAINING MAKEFILE] [EXECUTABLE NAME] [GCC FLAGS]\nNote: This assumes the gcc flags in the makefile are passed as a variable named " \
+                + "CPPFLAGS inside the makefile\nand that the executable is found in PATH/bin")
         return False
     else:
 
