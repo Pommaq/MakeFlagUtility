@@ -12,16 +12,37 @@ else:
         print("Cleaning filetree")
         os.system("make clean")
         print("Compiling program...")
-        returnval = os.popen("make -j" + str(cpu_count))
-        if returnval != 0:
-            raise "ReturnError"
+        if len(argv) > 2:
+            flags = argv[2:]
+        else:
+            # Read flags from flags.db
+            try:
+                flagsdb = open(argv[1] + "/flags.db")
+                flags = ()
+                for line in flagsdb:
+                    flags.append(line)
+                flagsdb.close()
+            except IOError:
+                print("Could not open flags.db and no flags passed as parameters. Exiting...")
+                flagsdb.close()
+                sys.exit(1) # EXIT_FAILURE
+        
+        command = "make -j" + str(cpu_count()) + "CXXFLAGS = \""
+        for flag in flags:
+            command += flag + " "
+        
+        returnval = os.popen(command)
+        
+        if returnval:
+            raise OSError
         else: # We managed to compile the program
             #Let's import the flags.
             if len(argv) > 2:
-                # Let's take the flags from our parameters.
+                # Let's take the flags from our parameters. That is everything after the makefile path
                 flags = argv[2:]
+                
 
 
-    except "ReturnError":
+    except OSError:
         print("Something went wrong compiling program. Exiting...")
         
