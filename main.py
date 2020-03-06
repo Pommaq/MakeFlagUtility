@@ -10,11 +10,14 @@ import itertools
 
 def randflags(rawflags):
     """ Randomizes flags from rawflags and returns an array of variable-length combinations""" 
+    print("Randomizing flags. ")
     flags = []
-    for l in range(len(rawflags)):
-        for x in itertools.combinations(rawflags,l):
-            flags.append(x)
-
+    if len(rawflags) > 1:
+        for l in range(1,len(rawflags)):
+            for x in itertools.combinations(rawflags,l):
+                flags.append(x)
+    else:
+        flags = [rawflags]
     return flags # Should be safe even if rawflags was empty
 
 
@@ -26,6 +29,7 @@ def log(path, programname, result, flaglist):
         for flag in flaglist:
             flags += flag + " "
         resultLog.write(path + "/" + programname + ": " + str(result) + " " + flags)
+        return True
     except IOError:
         print("Could not open logfile")
         return False
@@ -36,13 +40,13 @@ def TimeProgram(path, programname, rawflags):
     """ Assumes rawflags is a 2d array containing combinations of our flags """
     
     for flaglist in rawflags:
-        command = "make -j" + str(cpu_count()) + "CPPFLAGS = \""
+        command = "make -j" + str(cpu_count()) + " -C " + path + " CPPFLAGS=\""
         for flag in flaglist:
             command += flag + " "
         command += "\""
         try:
             returnval = os.popen(command) # Compiling code using make.
-            
+            print(int(returnval))
             if returnval != 0: # Something went wrong when compiling
                 raise OSError
 
@@ -53,7 +57,7 @@ def TimeProgram(path, programname, rawflags):
                     # Let's run the program 5 times and log the average time.
                     t_start = datetime.now()
 
-                    os.system(path + "/bin/" + programname)
+                    os.system(path + "/bin/" + programname + " " + path + "/TestDir/") # TODO: Take custom parameters
                     # TODO: Consider program return values. End if non-zero return.
 
                     t_end = datetime.now()
@@ -84,7 +88,7 @@ def main():
     else:
 
         print("Cleaning filetree")
-        os.system("make clean")
+        os.system("make -C " + argv[1] + " clean")
         print("Compiling program...")
         ProgramName = argv[2] # Saving programname
         if len(argv) > 3:
@@ -102,9 +106,9 @@ def main():
                     flagsdb.close()
                     return False
             
-            RandomizedFlags = randflags(flags)
-            # We are now ready to compile and run the tests.
-            TimeProgram(argv[1], ProgramName, RandomizedFlags)
+        RandomizedFlags = randflags(flags)
+        # We are now ready to compile and run the tests.
+        TimeProgram(argv[1], ProgramName, RandomizedFlags)
 
 if __name__ == "__main__":
     main()
