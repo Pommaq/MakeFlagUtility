@@ -9,7 +9,7 @@ import itertools
 #sys.argv[1] is the location of the makefile.
 if len(argv) < 2:
     print("Usage:\nCall: python3 main.py [PATH TO DIRECTORY CONTAINING MAKEFILE] [GCC FLAGS]\nNote: This assumes the gcc flags in the makefile are passed as a variable named CXXFLAGS.\
-        \nAnd that the filestructure of your source code is as following:\nbin/Executable\nbuild/[.o FILES]\nsrc/[.cpp FILES]\ninclude/[.hpp FILES]")
+        \nAnd that the executable is found in PATH/bin/program.exe")
 else:
     try:
         print("Cleaning filetree")
@@ -30,30 +30,42 @@ else:
                 flagsdb.close()
                 sys.exit(1) # EXIT_FAILURE
         
-        command = "make -j" + str(cpu_count()) + "CXXFLAGS = \""
+
+def randflags(rawflags):
+    """ Randomizes flags from rawflags and returns an array of variable-length combinations""" 
+    flags = []
+    for l in range(len(rawflags)):
+        for x in itertools.combinations(rawflags,l):
+            flags.append(x)
+
+    return flags # Should be safe even if rawflags was empty
+
 
 def TimeProgram(path, rawflags):
-        for i in range(len(rawflags)):
-            flags = itertools.permutations(rawflags[:i])
-            for flag in flags:
-                command += flag + " "
-            command += "\""
+    """ Assumes rawflags is a 2d array containing combinations of our flags """
+    
+    command = "make -j" + str(cpu_count()) + "CXXFLAGS = \""
+    
+    for flaglist in flags:
+        for flag in flaglist:
+            command += flag + " "
+    command += "\""
+    try:
+        returnval = os.popen(command) # Compiling code using make.
+        
+        if returnval != 0: # Something went wrong when compiling
+            raise OSError
 
-            returnval = os.popen(command) # Compiling code using make.
-            
-            if returnval != 0: # Something went wrong when compiling
-                raise OSError
+        else: # We managed to compile the program
+            # Let's benchmark the program.
+            for i in range(5):
+                # Let's run the program 5 times and log the average time.
+                t_start = datetime.now()
+                # RUN PROGRAM
+                
 
-            else: # We managed to compile the program
-                # Let's benchmark the program.
-                for i in range(5):
-                    # Let's run the program 5 times and log the average time.
-                    t_start = datetime.now()
-                    # RUN PROGRAM
-                    
-
-                    t_end = datetime.now()
-                    result = t_start - t_end
-        except OSError:
-            print("Something went wrong compiling program. Exiting...")
-            
+                t_end = datetime.now()
+                result = t_start - t_end
+    except OSError:
+        print("Something went wrong testing the program. Exiting...")
+        
