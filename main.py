@@ -25,11 +25,11 @@ def randflags(rawflags):
 def log(path, programname, result, flaglist):
     """ Logs one result to a logfile. """
     try:
-        resultLog = open(path + "/log.txt", "w")
+        resultLog = open(path + "/log.txt", "a")
         flags  = ""
         for flag in flaglist:
             flags += flag + " "
-        resultLog.write(path + "/" + programname + ": " + str(result) + " " + flags)
+        resultLog.write(path + "/" + programname + ": " + str(result) + " COMPILER_FLAGS:" + flags + "\n")
         return True
     except IOError:
         print("Could not open logfile")
@@ -63,18 +63,18 @@ def TimeProgram(path, programname, rawflags):
                 for i in range(5):
                     # Let's run the program 5 times and log the average time.
                     # TODO: Consider program return values. End if non-zero return.
-                    print("Doing shit")
-                    command = "subprocess.run([" +"\"" + path + "/bin/" + programname + "\",\"" + path + "/TestDir/" + "\"], shell=False)"
-                    m_times.append(timeit.timeit(command, setup="import subprocess"))
-                    print("Did shit")
+                    arguments = """[
+                        '%s',
+                        '%s',
+                        '%s']
+                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=True") # TODO: shell=True is dangerous. Prevent injections.
+                    m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments), setup="import subprocess", number=1))
                 #Calculating and logging results
-                print("Så")
-
                 result = 0
                 for time in m_times:
                     result += time
                 result = result/5
-                logged = log(result, flaglist)
+                logged = log(path, programname, result, flaglist)
                 if not logged:
                     raise OSError
         except ValueError as error:#OSError:
