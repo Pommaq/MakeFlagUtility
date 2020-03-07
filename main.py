@@ -53,6 +53,7 @@ def TimeProgram(path, programname, rawflags):
             CppFlags += flaglist[0]
             for flag in flaglist[1:]:
                 CppFlags += " %s" %(flag)
+                CppFlags += " -pipe"
         else:
             CppFlags = "CPPFLAGS="
         try:
@@ -119,14 +120,12 @@ def main():
                 flagsdb = open(argv[1] + "/flags.db")
                 flags = []
                 for line in flagsdb:
-                    flags.append(line)
+                    flags.append(line[:len(line)-1])
                 flagsdb.close()
             except IOError:
                     print("Could not open flags.db and no flags passed as parameters. Continuing with no flags")
                     flagsdb.close()
                     flags = [""]
-            
-            return True
             
         RandomizedFlags = randflags(flags)
         # We are now ready to compile and run the tests.
