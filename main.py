@@ -77,7 +77,7 @@ def TimeProgram(path, programname, rawflags):
                         '%s',
                         '%s',
                         '%s'], stdout=FNULL
-                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") # TODO: shell=True is dangerous. Prevent injections.
+                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") 
                     m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
                 FNULL.close()
                 #Calculating and logging results
