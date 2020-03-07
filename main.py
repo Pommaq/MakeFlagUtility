@@ -63,11 +63,11 @@ def TimeProgram(path, programname, rawflags):
             print("Compiling program")
             print(CppFlags)
             returnval = subprocess.run(["make", "-j", str(cpu_count()), "-C", path, CppFlags], stdout = FNULL, shell=False ).returncode # Compile code using make and our flags
+            FNULL.close()
+
             if returnval != 0: 
-                FNULL.close()
                 raise OSError
             else: 
-                # Let's benchmark the program.
                 print("Testing with flags: " + CppFlags)
                 m_times = []
                 for i in range(16):
@@ -79,8 +79,6 @@ def TimeProgram(path, programname, rawflags):
                         '%s'], stdout=FNULL
                         """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") 
                     m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
-                FNULL.close()
-                #Calculating and logging results
                 result = 0
                 for time in m_times:
                     result += time
