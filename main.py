@@ -56,23 +56,19 @@ def TimeProgram(path, programname, rawflags):
         else:
             CppFlags = "CPPFLAGS="
         try:
-            # Clean dir
-            FNULL = open(os.devnull, "w")
+            FNULL = open(os.devnull, "w") # Consumes program output
             
-            subprocess.run(["make", "-C", argv[1], "clean",], stdout=FNULL)
+            subprocess.run(["make", "-C", argv[1], "clean",], stdout=FNULL) #Note: stderr is still stderr.
 
-            #build program
             print("Compiling program")
             print(CppFlags)
             returnval = subprocess.run(["make", "-j", str(cpu_count()), "-C", path, CppFlags], stdout = FNULL, shell=False ).returncode # Compile code using make and our flags
-            FNULL.close()
-            if returnval != 0: # Something went wrong when compiling
+            if returnval != 0: 
+                FNULL.close()
                 raise OSError
-
             else: 
                 # Let's benchmark the program.
                 print("Testing with flags: " + CppFlags)
-                FNULL = open(os.devnull, "w")
                 m_times = []
                 for i in range(16):
                     # Let's run the program X times and log the average time.
@@ -81,7 +77,7 @@ def TimeProgram(path, programname, rawflags):
                         '%s',
                         '%s',
                         '%s'], stdout=FNULL
-                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=True") # TODO: shell=True is dangerous. Prevent injections.
+                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") # TODO: shell=True is dangerous. Prevent injections.
                     m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
                 FNULL.close()
                 #Calculating and logging results
@@ -89,6 +85,7 @@ def TimeProgram(path, programname, rawflags):
                 for time in m_times:
                     result += time
                 result = result/16
+                print("Result was: " + str(result))
                 logged = log(path, programname, result, flaglist)
                 if not logged:
                     raise OSError
@@ -109,17 +106,17 @@ def main():
 
     if len(argv) < 3:
         print("Usage:\nCall: python3 main.py [PATH TO DIRECTORY CONTAINING MAKEFILE] [EXECUTABLE NAME] [GCC FLAGS]\nNote: This assumes the gcc flags in the makefile are passed as a variable named " \
-                + "CPPFLAGS inside the makefile\nand that the executable is found in PATH/bin")
+                + "CPPFLAGS inside the makefile\nand that the executable is found in PATH/bin\nIf there are no [GCC FLAGS] then the flag will be taken from a flag.db file inside the directory")
         return False
     else:
 
         print("Cleaning filetree")
         subprocess.run(["make", "-C", argv[1], "clean",])
         ProgramName = argv[2] # Saving name of executable
+        """ Let's store flags. """
         if len(argv) > 3:
             flags = argv[3:]
         else:
-            # Read flags from flags.db
             try:
                 flagsdb = open(argv[1] + "/flags.db")
                 flags = []
@@ -127,9 +124,11 @@ def main():
                     flags.append(line)
                 flagsdb.close()
             except IOError:
-                    print("Could not open flags.db and no flags passed as parameters. Exiting...")
+                    print("Could not open flags.db and no flags passed as parameters. Continuing with no flags")
                     flagsdb.close()
-                    return False
+                    flags = [""]
+            
+            return True
             
         RandomizedFlags = randflags(flags)
         # We are now ready to compile and run the tests.
