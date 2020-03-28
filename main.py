@@ -5,22 +5,92 @@ from multiprocessing import cpu_count
 import itertools
 import timeit
 import os
-
+import copy
+from Flag import Flag as Flag
 # Dependencies: Make, gcc, Linux. python3.7
 
-#sys.argv[1] is the location of the makefile.
+def readOptFlags(path=argv[1]):
+    #Let's read our data from Flag-notes.txt
+    o1 = o2 = o3 = oS = False
+    flagClass = []
 
-def randflags(rawflags):
+    try:
+        optFlags = open(path + "/Flag-notes.txt") 
+        try:
+            for line in optFlags:
+                text = line.strip() # Avoid calling .strip multiple times
+                """ Sadly we do not have a switch() function implemented in python..."""
+                if text == "-o1/-o2/-o3:":
+                    o1 = o2 = o3 = True
+                    oS = False
+                    continue # To avoid so "-o1/-o2/-o3:" is treated as a compiler flag
+                elif text == "-o2/-o3/-os:":
+                    o2 = o3 = oS = True
+                    o1 = False
+                    continue
+                elif text == "-o2/-o3:":
+                    o2 = o3 = True
+                    oS = o1 = False
+                    continue
+                elif text == "-o3:":
+                    o3  = True
+                    o1 = o2 = oS = False
+                    continue
+
+                flagClass.append(Flag.cFlag(text,o1,o2,o3,oS))
+        finally:
+            optFlags.close()
+    except IOError:
+        print("Something went wrong opening flag-notes.txt")
+        exit(-1)
+    return flagClass
+        
+
+def readFlags(optFlags):
+    if len(argv) > 3:
+        flags = []
+        for entry in argv[3:]:
+            for flag in optFlags:
+                if entry == flag.a_flag:
+                    flags.append(copy.copy(flag))
+                    break
+                else:
+                    flags.append(Flag.cFlag(entry, False,False,False,False))
+                    break 
+    else:
+        try:
+            flagsdb = open(argv[1] + "/flags.db")
+            flags = []
+            try:
+                for line in flagsdb:
+                    for flag in optFlags:
+                        if line.strip() == flag.a_flag:
+                            flags.append(copy.copy(flag))
+                    flags.append(line[:len(line)-1])
+            finally:
+                flagsdb.close()
+        except IOError:
+                print("Could not open flags.db and no flags passed as parameters. Continuing with no flags")
+                flags = [""]
+    return flags
+
+
+def randflags(rawflags, optflags, path):
     """ Randomizes flags from rawflags and returns an array of variable-length combinations""" 
-    print("Randomizing flags. ")
+    print("Reading optimization flags")
     flags = []
     if len(rawflags) > 1:
-        for l in range(0,len(rawflags)):
-            for x in itertools.combinations(rawflags,l):
-                flags.append(x)
+ 
+        optFlags = ("-o1", "-o2", "-o3", "-os")
+        #o1 first
+        for entry in readFlags:
+            for l in range(0,len(entry)):
+                for x in itertools.combinations(entry,l):
+                    flags.append(x)
+        
     else:
         flags = [rawflags]
-    return flags # Should be safe even if rawflags was empty
+    return flags
 
 
 def log(path, programname, result, flaglist):
@@ -113,21 +183,10 @@ def main():
         subprocess.run(["make", "-C", argv[1], "clean",])
         ProgramName = argv[2] # Saving name of executable
         """ Let's store flags. """
-        if len(argv) > 3:
-            flags = argv[3:]
-        else:
-            try:
-                flagsdb = open(argv[1] + "/flags.db")
-                flags = []
-                for line in flagsdb:
-                    flags.append(line[:len(line)-1])
-                flagsdb.close()
-            except IOError:
-                    print("Could not open flags.db and no flags passed as parameters. Continuing with no flags")
-                    flagsdb.close()
-                    flags = [""]
+        optflags = readOptFlags()
+        flags = readFlags(optflags)
             
-        RandomizedFlags = randflags(flags)
+        RandomizedFlags = randflags(flags,argv[1])
         # We are now ready to compile and run the tests.
         TimeProgram(argv[1], ProgramName, RandomizedFlags)
 
