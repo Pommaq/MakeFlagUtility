@@ -23,7 +23,7 @@ def readOptFlags(path=argv[1]):
                 if text == "-o1/-o2/-o3:":
                     o1 = o2 = o3 = True
                     oS = False
-                    continue # To avoid so "-o1/-o2/-o3:" is treated as a compiler flag
+                    continue
                 elif text == "-o2/-o3/-os:":
                     o2 = o3 = oS = True
                     o1 = False

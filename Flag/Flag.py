@@ -16,7 +16,7 @@ class cFlag(object):
 
 
     def __eq__(self, other):
-        if self.a_flag == other.a_flag and self.a_o1 == other.a_o1 and self.a_o2 == other.a_o2 and self.a_o3 == other.a_o3 and self.a_os == other.a_os:
+        if self.a_flag == other.a_flag:
             return True
         else:
             return False
