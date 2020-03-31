@@ -124,9 +124,9 @@ def TimeProgram(path, programname, rawflags):
     if rawflags:
         CppFlags = "CPPFLAGS="
         CppFlags += "%s" %rawflags[0]
+        CppFlags += " -pipe"
         for flag in rawflags[1:]:
             CppFlags += " %s" %(flag)
-            #CppFlags += " -pipe"
     else:
         CppFlags = "CPPFLAGS="
     try:
