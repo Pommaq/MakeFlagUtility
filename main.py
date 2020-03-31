@@ -6,7 +6,7 @@ import itertools
 import timeit
 import os
 import copy
-from Flag import Flag as Flag
+from Flag import Flag
 # Dependencies: Make, gcc, Linux. python3.7
 
 def readOptFlags(path=argv[1]):
@@ -66,7 +66,7 @@ def readFlags(optFlags):
                     for flag in optFlags:
                         if line.strip() == flag.a_flag:
                             flags.append(copy.copy(flag))
-                    flags.append(line[:len(line)-1])
+                    flags.append(Flag.cFlag(line[:len(line)-1], False, False, False, False))
             finally:
                 flagsdb.close()
         except IOError:
@@ -75,19 +75,23 @@ def readFlags(optFlags):
     return flags
 
 
-def randflags(rawflags, optflags, path):
+def randflags(rawflags, programname, optflags, path):
     """ Randomizes flags from rawflags and returns an array of variable-length combinations""" 
     print("Reading optimization flags")
-    flags = []
     if len(rawflags) > 1:
- 
-        optFlags = ("-o1", "-o2", "-o3", "-os")
-        #o1 first
-        for entry in readFlags:
-            for l in range(0,len(entry)):
-                for x in itertools.combinations(entry,l):
-                    flags.append(x)
-        
+        optLevels = ("-o1", "-o2", "-o3", "-os")
+        for i in range (4):
+            flagsToUse = []
+            for flag in rawflags:
+                stat = (flag.a_o1, flag.a_o2, flag.a_o3, flag.a_os)
+                if not stat[i]:
+                    flagsToUse.append(copy.copy(flag))
+            
+            #Create all combinations then inject our opt flag
+            if len(flagsToUse) > 0:
+                for l in range(0,len(flagsToUse)):
+                    for x in itertools.combinations(flagsToUse,l):
+                        TimeProgram(path, programname, x + (optLevels[i],))            
     else:
         flags = [rawflags]
     return flags
@@ -99,7 +103,7 @@ def log(path, programname, result, flaglist):
         resultLog = open(path + "/log.txt", "a")
         flags  = ""
         for flag in flaglist:
-            flags += flag + " "
+            flags += str(flag) + " "
         resultLog.write(path + "/" + programname + ": " + str(result) + " COMPILER_FLAGS:" + flags + "\n")
         return True
     except IOError:
@@ -115,58 +119,57 @@ def runProgram(path, programname):
 
 
 def TimeProgram(path, programname, rawflags):
-    """ Assumes rawflags is a 2d array containing combinations of our flags """
+    """ Assumes rawflags is a 1d array containing compiler flags """
 
-    for flaglist in rawflags:
-        if flaglist:
-            CppFlags = "CPPFLAGS="
-            CppFlags += flaglist[0]
-            for flag in flaglist[1:]:
-                CppFlags += " %s" %(flag)
-                CppFlags += " -pipe"
-        else:
-            CppFlags = "CPPFLAGS="
-        try:
-            FNULL = open(os.devnull, "w") # Consumes program output
-            
-            subprocess.run(["make", "-C", argv[1], "clean",], stdout=FNULL) #Note: stderr is still stderr.
+    if rawflags:
+        CppFlags = "CPPFLAGS="
+        CppFlags += "%s" %rawflags[0]
+        for flag in rawflags[1:]:
+            CppFlags += " %s" %(flag)
+            #CppFlags += " -pipe"
+    else:
+        CppFlags = "CPPFLAGS="
+    try:
+        FNULL = open(os.devnull, "w") # Consumes program output
+        
+        subprocess.run(["make", "-C", argv[1], "clean",], stdout=FNULL) #Note: stderr is still stderr.
 
-            print("Compiling program")
-            print(CppFlags)
-            returnval = subprocess.run(["make", "-j", str(cpu_count()), "-C", path, CppFlags], stdout = FNULL, shell=False ).returncode # Compile code using make and our flags
-            FNULL.close()
+        print("Compiling program")
+        print(CppFlags)
+        returnval = subprocess.run(["make", "-j", str(cpu_count()), "-C", path, CppFlags], stdout = FNULL, shell=False ).returncode # Compile code using make and our flags
+        FNULL.close()
 
-            if returnval != 0: 
+        if returnval != 0: 
+            raise OSError
+        else: 
+            print("Testing with flags: " + CppFlags)
+            m_times = []
+            for _ in range(16):
+                # Let's run the program X times and log the average time.
+                # TODO: Consider program return values. End if non-zero return.
+                arguments = """[
+                    '%s',
+                    '%s',
+                    '%s'], stdout=FNULL
+                    """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") 
+                m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
+            result = 0
+            for time in m_times:
+                result += time
+            result = result/16
+            print("Result was: " + str(result))
+            logged = log(path, programname, result, rawflags)
+            if not logged:
                 raise OSError
-            else: 
-                print("Testing with flags: " + CppFlags)
-                m_times = []
-                for i in range(16):
-                    # Let's run the program X times and log the average time.
-                    # TODO: Consider program return values. End if non-zero return.
-                    arguments = """[
-                        '%s',
-                        '%s',
-                        '%s'], stdout=FNULL
-                        """ % ( path + "/bin/" + programname, path + "/TestDir/", "shell=False") 
-                    m_times.append(timeit.timeit(stmt="subprocess.run(%s)" % (arguments) + "; FNULL.close()", setup="import subprocess, os; FNULL=open(os.devnull,'w')", number=1))
-                result = 0
-                for time in m_times:
-                    result += time
-                result = result/16
-                print("Result was: " + str(result))
-                logged = log(path, programname, result, flaglist)
-                if not logged:
-                    raise OSError
-                    
-        except OSError as error:
-            flagsUsed = ""
-            for flag in flaglist:
-                flagsUsed += flag + " "
-            print("Something went wrong testing the program.\nFlags were: " + flagsUsed)
-            print(error)
-            print("Exiting...")
-            return False
+                
+    except OSError as error:
+        flagsUsed = ""
+        for flag in rawflags:
+            flagsUsed += str(flag) + " "
+        print("Something went wrong testing the program.\nFlags were: " + flagsUsed)
+        print(error)
+        print("Exiting...")
+        return False
 
     return True # We tried all combinations without a hitch.
 
@@ -181,14 +184,14 @@ def main():
 
         print("Cleaning filetree")
         subprocess.run(["make", "-C", argv[1], "clean",])
-        ProgramName = argv[2] # Saving name of executable
+        #ProgramName = argv[2] # Saving name of executable
         """ Let's store flags. """
         optflags = readOptFlags()
         flags = readFlags(optflags)
             
-        RandomizedFlags = randflags(flags,argv[1])
+        RandomizedFlags = randflags(flags, argv[2] , optflags, argv[1])
         # We are now ready to compile and run the tests.
-        TimeProgram(argv[1], ProgramName, RandomizedFlags)
+        TimeProgram(argv[1], argv[2], RandomizedFlags)
 
 if __name__ == "__main__":
     main()
